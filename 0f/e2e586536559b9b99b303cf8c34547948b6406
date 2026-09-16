@@ -1,0 +1,73 @@
+docs/USAGE.md
+  s_140591a05ba1e5::t_19ca834c951857 72-73,109,113-117
+  s_140591a05ba1e5::t_78db652feaccb7 69,110-112
+  s_140591a05ba1e5::t_34a631094cede6 118
+cmd/root.go
+  s_140591a05ba1e5::t_cdf90c6ea02995 4,7-8,15-16,18
+docs/AGENTS.md
+  s_140591a05ba1e5::t_19ca834c951857 20-21
+  s_140591a05ba1e5::t_78db652feaccb7 19
+internal/ghcli/ghcli_test.go
+  s_140591a05ba1e5::t_ac757a6819d642 1-26
+README.md
+  s_140591a05ba1e5::t_78db652feaccb7 194,213,238-241
+  s_140591a05ba1e5::t_19ca834c951857 215-216,232-234,237
+  s_140591a05ba1e5::t_682e7ec3062e91 242
+internal/report/query.go
+  s_140591a05ba1e5::t_58ddee7d2acd2d 10-12,16-17,27-28,36,59-83
+  s_140591a05ba1e5::t_9ecd807c8efa7e 84-86
+  s_118c48d6dd42e8::t_230ab1506fa8b8 87-88
+internal/report/service_test.go
+  s_140591a05ba1e5::t_ac757a6819d642 4,128-161,169-190
+  s_140591a05ba1e5::t_869b2e9bf25839 191
+internal/report/builder.go
+  s_140591a05ba1e5::t_86ee673d2065ff 105,120
+internal/ghcli/ghcli.go
+  s_140591a05ba1e5::t_58ddee7d2acd2d 5,155-159,178,221-225,239-241
+SKILL.md
+  s_140591a05ba1e5::t_19ca834c951857 51-52,170-175
+  s_140591a05ba1e5::t_78db652feaccb7 49,176-178
+  s_140591a05ba1e5::t_917f36d785d078 179
+cmd/review_view.go
+  s_140591a05ba1e5::t_bf1725ea55d254 165
+  s_140591a05ba1e5::t_8523ab9264ae75 118-120
+  s_140591a05ba1e5::t_cdf90c6ea02995 4,17-18,97,103,108-110,112-114,123-132
+  s_140591a05ba1e5::t_b9b1e4e7dd3ce1 9,42-43,58-59,66-68,86,96,98-102,104-107,111,115-117,121-122,133-160,162-163,166-187
+  s_140591a05ba1e5::t_86ee673d2065ff 161,164
+internal/report/service.go
+  s_140591a05ba1e5::t_58ddee7d2acd2d 4,43-122,139-170,173-196,199,201,229-230
+internal/report/domain.go
+  s_140591a05ba1e5::t_86ee673d2065ff 74,89
+cmd/review_view_test.go
+  s_140591a05ba1e5::t_2666b6a85d2ca1 285,287
+  s_140591a05ba1e5::t_86ee673d2065ff 180,182,212
+  s_140591a05ba1e5::t_c09d6dbdb9bbcb 15
+  s_140591a05ba1e5::t_63c34e17dafcf9 312-317
+  s_140591a05ba1e5::t_9cb9d97430ebf9 5,155-160,163-169,171,174-179,181,183-190,194-196,200-204,207-208,211,213-214,219-220,253-284,286,302-310,329-340
+  s_140591a05ba1e5::t_ac757a6819d642 10,173,197-199,205-206,209-210,215-218,221-252,288-301,318-319,341-349
+  s_140591a05ba1e5::t_2eded0b5edf7e6 161-162,170,172,191-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0fe2e586536559b9b99b303cf8c34547948b6406",
+  "prompts": {},
+  "sessions": {
+    "s_118c48d6dd42e8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aa8f-78e9-75d3-87ce-010151b32e06",
+        "model": "unknown"
+      },
+      "human_author": "pacnpal <183241239+pacnpal@users.noreply.github.com>"
+    },
+    "s_140591a05ba1e5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aa64-a6de-7d22-b681-545f461e112c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "pacnpal <183241239+pacnpal@users.noreply.github.com>"
+    }
+  }
+}
