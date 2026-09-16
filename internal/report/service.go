@@ -121,12 +121,14 @@ func (s *Service) graphQL(ctx context.Context, query string, variables map[strin
 // FetchContext generates a review report and cancels in-flight GraphQL calls with ctx.
 func (s *Service) FetchContext(ctx context.Context, pr resolver.Identity, opts Options) (Report, error) {
 	variables := map[string]interface{}{
-		"owner":         pr.Owner,
-		"name":          pr.Repo,
-		"number":        pr.Number,
-		"firstReviews":  defaultFirstReviews,
-		"firstThreads":  defaultFirstThreads,
-		"firstComments": defaultFirstComments,
+		"owner":          pr.Owner,
+		"name":           pr.Repo,
+		"number":         pr.Number,
+		"firstReviews":   defaultFirstReviews,
+		"firstThreads":   defaultFirstThreads,
+		"firstComments":  defaultFirstComments,
+		"includeReviews": true,
+		"includeThreads": true,
 	}
 	if opts.StatesProvided {
 		states := make([]string, len(opts.States))
@@ -168,6 +170,8 @@ func (s *Service) FetchContext(ctx context.Context, pr resolver.Identity, opts O
 				variables["threadsAfter"] = prData.ReviewThreads.PageInfo.EndCursor
 			}
 		}
+		variables["includeReviews"] = reviewsMore
+		variables["includeThreads"] = threadsMore
 	}
 
 	for i := range threadNodes {

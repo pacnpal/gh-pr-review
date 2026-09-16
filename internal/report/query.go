@@ -9,11 +9,13 @@ const reportQuery = `query Report(
   $firstThreads: Int,
   $firstComments: Int,
   $reviewsAfter: String,
-  $threadsAfter: String
+  $threadsAfter: String,
+  $includeReviews: Boolean!,
+  $includeThreads: Boolean!
 ) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      reviews(first: $firstReviews, after: $reviewsAfter, states: $states) {
+      reviews(first: $firstReviews, after: $reviewsAfter, states: $states) @include(if: $includeReviews) {
         pageInfo { hasNextPage endCursor }
         nodes {
           id
@@ -24,7 +26,7 @@ const reportQuery = `query Report(
           author { login }
         }
       }
-      reviewThreads(first: $firstThreads, after: $threadsAfter) {
+      reviewThreads(first: $firstThreads, after: $threadsAfter) @include(if: $includeThreads) {
         pageInfo { hasNextPage endCursor }
         nodes {
           id

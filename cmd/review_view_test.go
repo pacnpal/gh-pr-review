@@ -221,6 +221,41 @@ func TestReviewViewCommandWatchesForNewReviewsAndComments(t *testing.T) {
 	}
 }
 
+func TestReviewViewCommandRetriesInitialRefreshFailure(t *testing.T) {
+	originalFactory := apiClientFactory
+	defer func() { apiClientFactory = originalFactory }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	fake := &fakeViewAPI{payloads: [][]byte{[]byte("{"), viewResponse}, t: t, onCall: func(call int) {
+		if call == 2 {
+			cancel()
+		}
+	}}
+	apiClientFactory = func(host string) ghcli.API { return fake }
+
+	root := newRootCommand()
+	buf := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	root.SetOut(buf)
+	root.SetErr(errBuf)
+	root.SetArgs([]string{"review", "view", "--repo", "agyn/repo", "--watch", "--interval", "1ms", "51"})
+
+	if err := root.ExecuteContext(ctx); err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if !strings.Contains(errBuf.String(), "watch refresh failed") {
+		t.Fatalf("expected initial refresh error on stderr, got %q", errBuf.String())
+	}
+
+	var snapshot report.Report
+	if err := json.NewDecoder(buf).Decode(&snapshot); err != nil {
+		t.Fatalf("decode initial snapshot after retry: %v", err)
+	}
+	if len(snapshot.Reviews) != 2 {
+		t.Fatalf("expected full initial snapshot after retry, got %#v", snapshot.Reviews)
+	}
+}
+
 func TestReviewViewCommandCancelsInFlightRefresh(t *testing.T) {
 	originalFactory := apiClientFactory
 	defer func() { apiClientFactory = originalFactory }()

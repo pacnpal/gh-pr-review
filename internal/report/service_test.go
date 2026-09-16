@@ -3,6 +3,7 @@ package report
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"strings"
 	"testing"
 
@@ -159,6 +160,69 @@ func TestServiceFetchPaginatesReviewsThreadsAndComments(t *testing.T) {
 	}
 }
 
+func TestServiceFetchStopsRequestingCompletedTopLevelConnections(t *testing.T) {
+	tests := []struct {
+		name              string
+		firstPage         string
+		secondPage        string
+		completedVariable string
+		activeVariable    string
+	}{
+		{
+			name: "reviews finish first",
+			firstPage: `{
+				"repository":{"pullRequest":{
+					"reviews":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}},
+					"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"THREAD1"}}
+				}}
+			}`,
+			secondPage: `{
+				"repository":{"pullRequest":{
+					"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}
+				}}
+			}`,
+			completedVariable: "includeReviews",
+			activeVariable:    "includeThreads",
+		},
+		{
+			name: "threads finish first",
+			firstPage: `{
+				"repository":{"pullRequest":{
+					"reviews":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"REVIEW1"}},
+					"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}
+				}}
+			}`,
+			secondPage: `{
+				"repository":{"pullRequest":{
+					"reviews":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}
+				}}
+			}`,
+			completedVariable: "includeThreads",
+			activeVariable:    "includeReviews",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &pagingAPI{t: t, topPages: [][]byte{[]byte(tt.firstPage), []byte(tt.secondPage)}}
+
+			_, err := NewService(fake).FetchContext(context.Background(), resolver.Identity{Owner: "agyn", Repo: "sandbox", Number: 51}, Options{})
+			if err != nil {
+				t.Fatalf("fetch paginated report: %v", err)
+			}
+			if len(fake.variables) != 2 {
+				t.Fatalf("expected two top-level calls, got %d", len(fake.variables))
+			}
+			if fake.variables[1][tt.completedVariable] != false {
+				t.Fatalf("expected completed connection disabled, got %#v", fake.variables[1])
+			}
+			if fake.variables[1][tt.activeVariable] != true {
+				t.Fatalf("expected active connection enabled, got %#v", fake.variables[1])
+			}
+		})
+	}
+}
+
 type stubAPI struct {
 	t             *testing.T
 	payload       []byte
@@ -180,7 +244,7 @@ func (p *pagingAPI) REST(string, string, map[string]string, interface{}, interfa
 }
 
 func (p *pagingAPI) GraphQL(query string, variables map[string]interface{}, result interface{}) error {
-	p.variables = append(p.variables, variables)
+	p.variables = append(p.variables, maps.Clone(variables))
 	payload := p.commentPage
 	if !strings.Contains(query, "node(id: $threadID)") {
 		payload = p.topPages[p.topCall]

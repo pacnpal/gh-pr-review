@@ -112,9 +112,6 @@ func runReviewView(cmd *cobra.Command, opts *reviewViewOptions) error {
 			if cmd.Context().Err() != nil {
 				return nil
 			}
-			if initial {
-				return err
-			}
 			if _, writeErr := fmt.Fprintf(cmd.ErrOrStderr(), "watch refresh failed: %v\n", err); writeErr != nil {
 				return writeErr
 			}
