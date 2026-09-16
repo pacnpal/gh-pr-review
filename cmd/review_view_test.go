@@ -261,12 +261,13 @@ func TestReviewViewCommandCancelsInFlightRefresh(t *testing.T) {
 	defer func() { apiClientFactory = originalFactory }()
 
 	started := make(chan struct{})
-	fake := &fakeViewAPI{t: t, blockUntilCanceled: true, started: started}
+	fake := &fakeViewAPI{payload: viewResponse, t: t, blockUntilCanceled: true, blockAfterCalls: 1, started: started}
 	apiClientFactory = func(host string) ghcli.API { return fake }
 
 	ctx, cancel := context.WithCancel(context.Background())
 	root := newRootCommand()
-	root.SetOut(io.Discard)
+	buf := &bytes.Buffer{}
+	root.SetOut(buf)
 	root.SetErr(io.Discard)
 	root.SetArgs([]string{"review", "view", "--repo", "agyn/repo", "--watch", "--interval", "1ms", "51"})
 
@@ -276,6 +277,13 @@ func TestReviewViewCommandCancelsInFlightRefresh(t *testing.T) {
 	case <-started:
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for refresh to start")
+	}
+	var snapshot report.Report
+	if err := json.NewDecoder(buf).Decode(&snapshot); err != nil {
+		t.Fatalf("decode initial snapshot: %v", err)
+	}
+	if len(snapshot.Reviews) != 2 {
+		t.Fatalf("expected initial snapshot before blocked refresh, got %#v", snapshot.Reviews)
 	}
 	cancel()
 	select {
@@ -351,6 +359,7 @@ type fakeViewAPI struct {
 	onCall             func(int)
 	variables          map[string]interface{}
 	blockUntilCanceled bool
+	blockAfterCalls    int
 	started            chan struct{}
 }
 
@@ -376,7 +385,7 @@ func (f *fakeViewAPI) GraphQL(query string, variables map[string]interface{}, re
 }
 
 func (f *fakeViewAPI) GraphQLContext(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
-	if f.blockUntilCanceled {
+	if f.blockUntilCanceled && f.calls >= f.blockAfterCalls {
 		close(f.started)
 		<-ctx.Done()
 		return ctx.Err()

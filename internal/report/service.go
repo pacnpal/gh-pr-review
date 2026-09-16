@@ -142,6 +142,8 @@ func (s *Service) FetchContext(ctx context.Context, pr resolver.Identity, opts O
 	threadNodes := []threadNode{}
 	reviewsMore, threadsMore := true, true
 	for reviewsMore || threadsMore {
+		reviewsCursor, _ := variables["reviewsAfter"].(string)
+		threadsCursor, _ := variables["threadsAfter"].(string)
 		var response reportResponse
 		if err := s.graphQL(ctx, reportQuery, variables, &response); err != nil {
 			return Report{}, err
@@ -157,6 +159,9 @@ func (s *Service) FetchContext(ctx context.Context, pr resolver.Identity, opts O
 				if prData.Reviews.PageInfo.EndCursor == "" {
 					return Report{}, errors.New("reviews pagination missing end cursor")
 				}
+				if prData.Reviews.PageInfo.EndCursor == reviewsCursor {
+					return Report{}, errors.New("reviews pagination cursor did not advance")
+				}
 				variables["reviewsAfter"] = prData.Reviews.PageInfo.EndCursor
 			}
 		}
@@ -166,6 +171,9 @@ func (s *Service) FetchContext(ctx context.Context, pr resolver.Identity, opts O
 			if threadsMore {
 				if prData.ReviewThreads.PageInfo.EndCursor == "" {
 					return Report{}, errors.New("threads pagination missing end cursor")
+				}
+				if prData.ReviewThreads.PageInfo.EndCursor == threadsCursor {
+					return Report{}, errors.New("threads pagination cursor did not advance")
 				}
 				variables["threadsAfter"] = prData.ReviewThreads.PageInfo.EndCursor
 			}
@@ -194,6 +202,14 @@ func (s *Service) FetchContext(ctx context.Context, pr resolver.Identity, opts O
 			}
 			if response.Node == nil {
 				return Report{}, errors.New("review thread not found or inaccessible")
+			}
+			if response.Node.Comments.PageInfo.HasNextPage {
+				if response.Node.Comments.PageInfo.EndCursor == "" {
+					return Report{}, errors.New("comments pagination missing end cursor")
+				}
+				if response.Node.Comments.PageInfo.EndCursor == cursor {
+					return Report{}, errors.New("comments pagination cursor did not advance")
+				}
 			}
 			threadNodes[i].Comments.Nodes = append(threadNodes[i].Comments.Nodes, response.Node.Comments.Nodes...)
 			threadNodes[i].Comments.PageInfo = response.Node.Comments.PageInfo

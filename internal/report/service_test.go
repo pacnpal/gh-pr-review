@@ -152,6 +152,12 @@ func TestServiceFetchPaginatesReviewsThreadsAndComments(t *testing.T) {
 	if len(fake.variables) != 3 {
 		t.Fatalf("expected two top-level pages and one comment page, got %d calls", len(fake.variables))
 	}
+	if _, ok := fake.variables[0]["reviewsAfter"]; ok {
+		t.Fatalf("expected first request without a reviews cursor, got %#v", fake.variables[0])
+	}
+	if _, ok := fake.variables[0]["threadsAfter"]; ok {
+		t.Fatalf("expected first request without a threads cursor, got %#v", fake.variables[0])
+	}
 	if fake.variables[1]["reviewsAfter"] != "REV1" || fake.variables[1]["threadsAfter"] != "THREAD1" {
 		t.Fatalf("expected top-level cursors on second page, got %#v", fake.variables[1])
 	}
@@ -218,6 +224,55 @@ func TestServiceFetchStopsRequestingCompletedTopLevelConnections(t *testing.T) {
 			}
 			if fake.variables[1][tt.activeVariable] != true {
 				t.Fatalf("expected active connection enabled, got %#v", fake.variables[1])
+			}
+		})
+	}
+}
+
+func TestServiceFetchRejectsNonProgressingPaginationCursors(t *testing.T) {
+	tests := []struct {
+		name        string
+		topPages    []string
+		commentPage string
+		wantErr     string
+	}{
+		{
+			name: "reviews",
+			topPages: []string{
+				`{"repository":{"pullRequest":{"reviews":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"REVIEW1"}},"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}`,
+				`{"repository":{"pullRequest":{"reviews":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"REVIEW1"}}}}}`,
+			},
+			wantErr: "reviews pagination cursor did not advance",
+		},
+		{
+			name: "threads",
+			topPages: []string{
+				`{"repository":{"pullRequest":{"reviews":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}},"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"THREAD1"}}}}}`,
+				`{"repository":{"pullRequest":{"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"THREAD1"}}}}}`,
+			},
+			wantErr: "threads pagination cursor did not advance",
+		},
+		{
+			name: "comments",
+			topPages: []string{
+				`{"repository":{"pullRequest":{"reviews":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}},"reviewThreads":{"nodes":[{"id":"T1","comments":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"COMMENT1"}}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}`,
+			},
+			commentPage: `{"node":{"comments":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"COMMENT1"}}}}`,
+			wantErr:     "comments pagination cursor did not advance",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			topPages := make([][]byte, len(tt.topPages))
+			for i := range tt.topPages {
+				topPages[i] = []byte(tt.topPages[i])
+			}
+			fake := &pagingAPI{t: t, topPages: topPages, commentPage: []byte(tt.commentPage)}
+
+			_, err := NewService(fake).FetchContext(context.Background(), resolver.Identity{Owner: "agyn", Repo: "sandbox", Number: 51}, Options{})
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected %q, got %v", tt.wantErr, err)
 			}
 		})
 	}
