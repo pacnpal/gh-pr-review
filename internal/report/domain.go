@@ -71,6 +71,7 @@ type ReportReview struct {
 
 // ReportComment contains the shaped parent comment for a thread.
 type ReportComment struct {
+	NodeID         string        `json:"-"`
 	ThreadID       string        `json:"thread_id"`
 	CommentNodeID  *string       `json:"comment_node_id,omitempty"`
 	Path           string        `json:"path"`
@@ -85,6 +86,7 @@ type ReportComment struct {
 
 // ThreadReply captures a reply within a thread.
 type ThreadReply struct {
+	NodeID        string  `json:"-"`
 	CommentNodeID *string `json:"comment_node_id,omitempty"`
 	AuthorLogin   string  `json:"author_login"`
 	Body          string  `json:"body"`

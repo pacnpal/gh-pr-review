@@ -1,6 +1,7 @@
 package report
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -39,6 +40,86 @@ func NewService(api ghcli.API) *Service {
 
 // Fetch generates a review report for the given pull request.
 func (s *Service) Fetch(pr resolver.Identity, opts Options) (Report, error) {
+	return s.FetchContext(context.Background(), pr, opts)
+}
+
+type pageInfo struct {
+	HasNextPage bool   `json:"hasNextPage"`
+	EndCursor   string `json:"endCursor"`
+}
+
+type reviewNode struct {
+	ID          string  `json:"id"`
+	State       string  `json:"state"`
+	Body        *string `json:"body"`
+	SubmittedAt *string `json:"submittedAt"`
+	DatabaseID  *int    `json:"databaseId"`
+	Author      *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+}
+
+type commentNode struct {
+	ID         string `json:"id"`
+	DatabaseID int    `json:"databaseId"`
+	Body       string `json:"body"`
+	CreatedAt  string `json:"createdAt"`
+	Author     *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+	PullRequestReview *struct {
+		DatabaseID *int   `json:"databaseId"`
+		State      string `json:"state"`
+		ID         string `json:"id"`
+	} `json:"pullRequestReview"`
+	ReplyTo *struct {
+		ID         string `json:"id"`
+		DatabaseID int    `json:"databaseId"`
+	} `json:"replyTo"`
+}
+
+type commentConnection struct {
+	Nodes    []commentNode `json:"nodes"`
+	PageInfo pageInfo      `json:"pageInfo"`
+}
+
+type threadNode struct {
+	ID         string            `json:"id"`
+	Path       string            `json:"path"`
+	Line       *int              `json:"line"`
+	IsResolved bool              `json:"isResolved"`
+	IsOutdated bool              `json:"isOutdated"`
+	Comments   commentConnection `json:"comments"`
+}
+
+type reportResponse struct {
+	Repository *struct {
+		PullRequest *struct {
+			Reviews struct {
+				Nodes    []reviewNode `json:"nodes"`
+				PageInfo pageInfo     `json:"pageInfo"`
+			} `json:"reviews"`
+			ReviewThreads struct {
+				Nodes    []threadNode `json:"nodes"`
+				PageInfo pageInfo     `json:"pageInfo"`
+			} `json:"reviewThreads"`
+		} `json:"pullRequest"`
+	} `json:"repository"`
+}
+
+type contextGraphQLAPI interface {
+	GraphQLContext(context.Context, string, map[string]interface{}, interface{}) error
+}
+
+func (s *Service) graphQL(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
+	if api, ok := s.API.(contextGraphQLAPI); ok {
+		return api.GraphQLContext(ctx, query, variables, result)
+	}
+	return s.API.GraphQL(query, variables, result)
+}
+
+// FetchContext generates a review report and cancels in-flight GraphQL calls with ctx.
+func (s *Service) FetchContext(ctx context.Context, pr resolver.Identity, opts Options) (Report, error) {
 	variables := map[string]interface{}{
 		"owner":         pr.Owner,
 		"name":          pr.Repo,
@@ -55,66 +136,69 @@ func (s *Service) Fetch(pr resolver.Identity, opts Options) (Report, error) {
 		variables["states"] = states
 	}
 
-	var response struct {
-		Repository *struct {
-			PullRequest *struct {
-				Reviews struct {
-					Nodes []struct {
-						ID          string  `json:"id"`
-						State       string  `json:"state"`
-						Body        *string `json:"body"`
-						SubmittedAt *string `json:"submittedAt"`
-						DatabaseID  *int    `json:"databaseId"`
-						Author      *struct {
-							Login string `json:"login"`
-						} `json:"author"`
-					} `json:"nodes"`
-				} `json:"reviews"`
-				ReviewThreads struct {
-					Nodes []struct {
-						ID         string `json:"id"`
-						Path       string `json:"path"`
-						Line       *int   `json:"line"`
-						IsResolved bool   `json:"isResolved"`
-						IsOutdated bool   `json:"isOutdated"`
-						Comments   struct {
-							Nodes []struct {
-								ID         string `json:"id"`
-								DatabaseID int    `json:"databaseId"`
-								Body       string `json:"body"`
-								CreatedAt  string `json:"createdAt"`
-								Author     *struct {
-									Login string `json:"login"`
-								} `json:"author"`
-								PullRequestReview *struct {
-									DatabaseID *int   `json:"databaseId"`
-									State      string `json:"state"`
-									ID         string `json:"id"`
-								} `json:"pullRequestReview"`
-								ReplyTo *struct {
-									ID         string `json:"id"`
-									DatabaseID int    `json:"databaseId"`
-								} `json:"replyTo"`
-							} `json:"nodes"`
-						} `json:"comments"`
-					} `json:"nodes"`
-				} `json:"reviewThreads"`
-			} `json:"pullRequest"`
-		} `json:"repository"`
+	reviewNodes := []reviewNode{}
+	threadNodes := []threadNode{}
+	reviewsMore, threadsMore := true, true
+	for reviewsMore || threadsMore {
+		var response reportResponse
+		if err := s.graphQL(ctx, reportQuery, variables, &response); err != nil {
+			return Report{}, err
+		}
+		if response.Repository == nil || response.Repository.PullRequest == nil {
+			return Report{}, errors.New("pull request not found or inaccessible")
+		}
+		prData := response.Repository.PullRequest
+		if reviewsMore {
+			reviewNodes = append(reviewNodes, prData.Reviews.Nodes...)
+			reviewsMore = prData.Reviews.PageInfo.HasNextPage
+			if reviewsMore {
+				if prData.Reviews.PageInfo.EndCursor == "" {
+					return Report{}, errors.New("reviews pagination missing end cursor")
+				}
+				variables["reviewsAfter"] = prData.Reviews.PageInfo.EndCursor
+			}
+		}
+		if threadsMore {
+			threadNodes = append(threadNodes, prData.ReviewThreads.Nodes...)
+			threadsMore = prData.ReviewThreads.PageInfo.HasNextPage
+			if threadsMore {
+				if prData.ReviewThreads.PageInfo.EndCursor == "" {
+					return Report{}, errors.New("threads pagination missing end cursor")
+				}
+				variables["threadsAfter"] = prData.ReviewThreads.PageInfo.EndCursor
+			}
+		}
 	}
 
-	if err := s.API.GraphQL(reportQuery, variables, &response); err != nil {
-		return Report{}, err
+	for i := range threadNodes {
+		for threadNodes[i].Comments.PageInfo.HasNextPage {
+			cursor := threadNodes[i].Comments.PageInfo.EndCursor
+			if cursor == "" {
+				return Report{}, errors.New("comments pagination missing end cursor")
+			}
+			var response struct {
+				Node *struct {
+					Comments commentConnection `json:"comments"`
+				} `json:"node"`
+			}
+			if err := s.graphQL(ctx, threadCommentsQuery, map[string]interface{}{
+				"threadID":      threadNodes[i].ID,
+				"firstComments": defaultFirstComments,
+				"commentsAfter": cursor,
+			}, &response); err != nil {
+				return Report{}, err
+			}
+			if response.Node == nil {
+				return Report{}, errors.New("review thread not found or inaccessible")
+			}
+			threadNodes[i].Comments.Nodes = append(threadNodes[i].Comments.Nodes, response.Node.Comments.Nodes...)
+			threadNodes[i].Comments.PageInfo = response.Node.Comments.PageInfo
+		}
 	}
 
-	if response.Repository == nil || response.Repository.PullRequest == nil {
-		return Report{}, errors.New("pull request not found or inaccessible")
-	}
+	reviews := make([]Review, 0, len(reviewNodes))
 
-	prData := response.Repository.PullRequest
-	reviews := make([]Review, 0, len(prData.Reviews.Nodes))
-
-	for _, node := range prData.Reviews.Nodes {
+	for _, node := range reviewNodes {
 		if node.DatabaseID == nil {
 			return Report{}, errors.New("review missing databaseId")
 		}
@@ -142,8 +226,8 @@ func (s *Service) Fetch(pr resolver.Identity, opts Options) (Report, error) {
 		reviews = append(reviews, review)
 	}
 
-	threads := make([]Thread, 0, len(prData.ReviewThreads.Nodes))
-	for _, node := range prData.ReviewThreads.Nodes {
+	threads := make([]Thread, 0, len(threadNodes))
+	for _, node := range threadNodes {
 		thread := Thread{
 			ID:         node.ID,
 			Path:       node.Path,

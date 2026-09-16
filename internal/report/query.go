@@ -7,11 +7,14 @@ const reportQuery = `query Report(
   $states: [PullRequestReviewState!],
   $firstReviews: Int,
   $firstThreads: Int,
-  $firstComments: Int
+  $firstComments: Int,
+  $reviewsAfter: String,
+  $threadsAfter: String
 ) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      reviews(first: $firstReviews, states: $states) {
+      reviews(first: $firstReviews, after: $reviewsAfter, states: $states) {
+        pageInfo { hasNextPage endCursor }
         nodes {
           id
           state
@@ -21,7 +24,8 @@ const reportQuery = `query Report(
           author { login }
         }
       }
-      reviewThreads(first: $firstThreads) {
+      reviewThreads(first: $firstThreads, after: $threadsAfter) {
+        pageInfo { hasNextPage endCursor }
         nodes {
           id
           path
@@ -29,6 +33,7 @@ const reportQuery = `query Report(
           isResolved
           isOutdated
           comments(first: $firstComments) {
+            pageInfo { hasNextPage endCursor }
             nodes {
               id
               databaseId
@@ -45,6 +50,36 @@ const reportQuery = `query Report(
                 databaseId
               }
             }
+          }
+        }
+      }
+    }
+  }
+}`
+
+const threadCommentsQuery = `query ThreadComments(
+  $threadID: ID!,
+  $firstComments: Int!,
+  $commentsAfter: String
+) {
+  node(id: $threadID) {
+    ... on PullRequestReviewThread {
+      comments(first: $firstComments, after: $commentsAfter) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          databaseId
+          body
+          createdAt
+          author { login }
+          pullRequestReview {
+            id
+            state
+            databaseId
+          }
+          replyTo {
+            id
+            databaseId
           }
         }
       }

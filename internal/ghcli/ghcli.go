@@ -2,6 +2,7 @@ package ghcli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -151,6 +152,11 @@ func (c *Client) REST(method, path string, params map[string]string, body interf
 
 // GraphQL issues a GraphQL operation through `gh api graphql`.
 func (c *Client) GraphQL(query string, variables map[string]interface{}, result interface{}) error {
+	return c.GraphQLContext(context.Background(), query, variables, result)
+}
+
+// GraphQLContext issues a GraphQL operation and stops the gh process when ctx is canceled.
+func (c *Client) GraphQLContext(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
 	payload := map[string]interface{}{
 		"query": query,
 	}
@@ -169,7 +175,7 @@ func (c *Client) GraphQL(query string, variables map[string]interface{}, result 
 	}
 	args = append(args, "--input", "-")
 
-	stdout, stderr, err := runGh(args, data)
+	stdout, stderr, err := runGhContext(ctx, args, data)
 	if err != nil {
 		return wrapError(err, stdout, stderr)
 	}
@@ -212,7 +218,11 @@ func (c *Client) GraphQL(query string, variables map[string]interface{}, result 
 
 // runGh executes the `gh` CLI command with provided arguments and optional stdin data.
 func runGh(args []string, stdin []byte) ([]byte, string, error) {
-	cmd := exec.Command("gh", args...)
+	return runGhContext(context.Background(), args, stdin)
+}
+
+func runGhContext(ctx context.Context, args []string, stdin []byte) ([]byte, string, error) {
+	cmd := exec.CommandContext(ctx, "gh", args...)
 	// DEBUG LOG
 	// fmt.Fprintf(os.Stderr, "running gh %s\n", strings.Join(args, " "))
 	if stdin != nil {
@@ -226,6 +236,9 @@ func runGh(args []string, stdin []byte) ([]byte, string, error) {
 
 	err := cmd.Run()
 	if err != nil {
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
 		return stdout.Bytes(), stderr.String(), err
 	}
 

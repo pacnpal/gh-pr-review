@@ -66,9 +66,11 @@ gh pr-review review --add-comment \
 - Optional pull request selector argument (URL or number with `--repo`).
   - `--repo` / `--pr` flags when not providing the positional number.
   - Filters: `--reviewer`, `--states`, `--unresolved`, `--not_outdated`,
-    `--tail`.
+    `--tail`. In watch mode, `--tail` limits only the initial snapshot.
   - `--include-comment-node-id` to surface GraphQL comment IDs on parent
     comments and replies.
+  - `--watch` to keep polling for new reviews, inline comments, and replies.
+  - `--interval` to set the watch refresh duration (default `30s`).
 - **Backend:** GitHub GraphQL `pullRequest.reviews` query.
 - **Output shape:**
 
@@ -103,6 +105,16 @@ The `thread_id` values surfaced in the report feed directly into
 `comments reply`. Enable `--include-comment-node-id` to decorate parent
 comments and replies with GraphQL `comment_node_id` fields; those keys remain
 omitted otherwise.
+
+Watch mode uses the same filters and emits newline-delimited JSON. Its first
+object is the current snapshot; later objects contain new review activity. An
+existing review and parent comment are repeated as context when they contain a
+new reply. Unchanged polls emit nothing, and temporary refresh failures are
+reported on stderr without stopping the watch.
+
+```sh
+gh pr-review review view --watch --interval 15s -R owner/repo 42
+```
 
 ## review --submit (GraphQL only)
 
