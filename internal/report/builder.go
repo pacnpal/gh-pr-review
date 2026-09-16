@@ -102,6 +102,7 @@ func BuildReport(reviews []Review, threads []Thread, filters FilterOptions) Repo
 				commentNodeID = &replyID
 			}
 			reportReplies[i] = ThreadReply{
+				NodeID:        reply.NodeID,
 				CommentNodeID: commentNodeID,
 				AuthorLogin:   reply.AuthorLogin,
 				Body:          reply.Body,
@@ -116,6 +117,7 @@ func BuildReport(reviews []Review, threads []Thread, filters FilterOptions) Repo
 			commentNodeID = &id
 		}
 		reportComment := ReportComment{
+			NodeID:         parent.NodeID,
 			ThreadID:       thread.ID,
 			CommentNodeID:  commentNodeID,
 			Path:           thread.Path,

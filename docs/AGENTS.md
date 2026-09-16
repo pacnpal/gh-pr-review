@@ -16,7 +16,9 @@ Useful filters:
 - **`--states <list>`** — Comma-separated list of review states.
 - **`--unresolved`** — Only include unresolved threads.
 - **`--not_outdated`** — Drop threads marked as outdated.
-- **`--tail <n>`** — Keep the last `n` replies per thread (0 keeps all).
+- **`--tail <n>`** — Keep the last `n` replies per thread (initial snapshot only with `--watch`).
+- **`--watch`** — Print the current snapshot, then stream new review activity.
+- **`--interval <duration>`** — Set the watch refresh interval (default `30s`).
 
 Example capturing the latest actionable work:
 

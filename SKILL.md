@@ -46,8 +46,10 @@ gh pr-review review view -R owner/repo --pr <number>
 - `--unresolved` - Only show unresolved threads
 - `--reviewer <login>` - Filter by specific reviewer
 - `--states <APPROVED|CHANGES_REQUESTED|COMMENTED|DISMISSED>` - Filter by review state
-- `--tail <n>` - Keep only last n replies per thread
+- `--tail <n>` - Keep only last n replies per thread (initial snapshot only with `--watch`)
 - `--not_outdated` - Exclude outdated threads
+- `--watch` - Print the current snapshot, then stream new review activity
+- `--interval <duration>` - Set the watch refresh interval (default `30s`)
 
 **Output:** Structured JSON with reviews, comments, thread_ids, and resolution status.
 
@@ -164,6 +166,16 @@ Example output structure:
 ```sh
 gh pr-review review view --unresolved --not_outdated -R owner/repo --pr $(gh pr view --json number -q .number)
 ```
+
+### Watch for New Review Activity
+
+```sh
+gh pr-review review view --watch --interval 15s -R owner/repo --pr 42
+```
+
+The command emits newline-delimited JSON: an initial snapshot followed by new
+reviews, inline comments, or replies. Existing review and parent-comment fields
+are repeated as context around new replies.
 
 ### Reply to All Unresolved Comments
 

@@ -1,16 +1,21 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
 
 // Execute sets up the root command tree and executes it.
 func Execute() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	root := newRootCommand()
-	return root.Execute()
+	return root.ExecuteContext(ctx)
 }
 
 func newRootCommand() *cobra.Command {

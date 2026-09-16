@@ -191,7 +191,7 @@ gh extension upgrade agynio/gh-pr-review
 
 ### Command behavior
 
-- Single GraphQL operation per invocation (no REST mixing).
+- GraphQL only (no REST mixing); cursor pages are fetched until complete.
 - Includes all reviewers, review states, and threads by default.
 - Replies are sorted by `created_at` ascending.
 - Output exposes `author_login` only—no user objects or `html_url` fields.
@@ -210,8 +210,10 @@ For the full canonical response structure, see docs/SCHEMAS.md.
 | `--states <list>` | Comma-separated review states (`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`, `DISMISSED`). |
 | `--unresolved` | Keep only unresolved threads. |
 | `--not_outdated` | Exclude threads marked as outdated. |
-| `--tail <n>` | Retain only the last `n` replies per thread (0 = all). The parent inline comment is always kept; only replies are trimmed. |
+| `--tail <n>` | Retain only the last `n` replies per thread (0 = all). In watch mode this limits only the initial snapshot, so later reply bursts remain lossless. |
 | `--include-comment-node-id` | Add GraphQL comment node identifiers to parent comments and replies. |
+| `--watch` | Keep polling and emit new reviews, inline comments, and replies as newline-delimited JSON. |
+| `--interval <duration>` | Set the watch refresh interval (default `30s`; accepts values such as `5s` or `1m`). |
 
 ### Examples
 
@@ -227,7 +229,16 @@ gh pr-review review view -R owner/repo --pr 3 --reviewer alice --states CHANGES_
 
 # Drop outdated threads and include comment node IDs
 gh pr-review review view -R owner/repo --pr 3 --not_outdated --include-comment-node-id
+
+# Print the current snapshot, then stream only new review activity every 15 seconds
+gh pr-review review view -R owner/repo --pr 3 --watch --interval 15s
 ```
+
+Watch mode keeps the same filters as a one-time view. The first JSON object is
+the current snapshot; later objects contain new reviews, inline comments, or
+replies. An existing review and parent comment are repeated as context when
+they contain a new reply. Unchanged polls emit nothing. Temporary refresh
+failures are written to stderr and the watch continues.
 
 ### Replying to threads
 
