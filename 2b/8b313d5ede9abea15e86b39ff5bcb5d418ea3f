@@ -1,0 +1,27 @@
+internal/report/service.go
+  s_140591a05ba1e5::t_e303a595bf4620 130-131,173-174
+  s_140591a05ba1e5::t_ec75e5450f09b2 124-129
+internal/report/service_test.go
+  s_140591a05ba1e5::t_6ff4519ee607b1 163-225
+  s_140591a05ba1e5::t_2aff27dff432df 6,247
+cmd/review_view_test.go
+  s_140591a05ba1e5::t_5cbf9240ac5432 224-258
+internal/report/query.go
+  s_140591a05ba1e5::t_e303a595bf4620 12-14,18,29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2b8b313d5ede9abea15e86b39ff5bcb5d418ea3f",
+  "prompts": {},
+  "sessions": {
+    "s_140591a05ba1e5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aa64-a6de-7d22-b681-545f461e112c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "pacnpal <183241239+pacnpal@users.noreply.github.com>"
+    }
+  }
+}
